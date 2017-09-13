@@ -1,0 +1,37 @@
+---
+- name: Create elasticsearch-exporter container
+  become: true
+  docker_container:
+    name: "{{ elasticsearch_exporter_service_name }}"
+    command: "{{ elasticsearch_exporter_args }}"
+    detach: true
+    image: "{{ elasticsearch_exporter_image }}"
+    network_mode: host
+    ports:
+      - "9108:9108"
+    state: present
+  register: elasticsearch_exporter_service_config
+
+- name: Create elasticsearch-exporter service file
+  become: true
+  template:
+    dest: "/etc/systemd/system/{{ elasticsearch_exporter_service_name }}.service"
+    src: "templates/elasticsearch-exporter.service.j2"
+    mode: 0664
+  register: elasticsearch_exporter_service_config
+  when: ansible_service_mgr == 'systemd'
+
+- name: Restart elasticsearch-exporter service
+  become: true
+  systemd:
+    name: "{{ elasticsearch_exporter_service_name }}.service"
+    daemon_reload: yes
+    state: restarted
+  when: elasticsearch_exporter_service_config.changed
+
+- name: Enable elasticsearch-exporter service
+  become: true
+  service:
+    name: "{{ elasticsearch_exporter_service_name }}.service"
+    state: started
+    enabled: yes
